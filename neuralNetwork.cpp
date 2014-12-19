@@ -28,7 +28,7 @@ struct Connection {
 class TrainingData {
 public:
     TrainingData(const string filename);
-    bool isEoF(void) { return mDataFile.eof(); }
+    bool isEoF() { return mDataFile.eof(); }
     void getTopology(vector<unsigned int>& topology);
     int getNextInputs(vector<double>& inputVals);
     int getTargetOutputs(vector<double>& targetOutputVals);
@@ -40,7 +40,7 @@ TrainingData::TrainingData(const string filename) {
     mDataFile.open(filename.c_str());
 }
 
-void TrainingData::getTopology(vector<unsigned int> &topology) {
+void TrainingData::getTopology(vector<unsigned int>& topology) {
     string line, label;
 
     getline(mDataFile, line);
@@ -57,7 +57,7 @@ void TrainingData::getTopology(vector<unsigned int> &topology) {
     }
 }
 
-int TrainingData::getNextInputs(vector<double> &inputVals) {
+int TrainingData::getNextInputs(vector<double>& inputVals) {
     inputVals.clear();
 
     string line, label;
@@ -74,7 +74,7 @@ int TrainingData::getNextInputs(vector<double> &inputVals) {
     return inputVals.size();
 }
 
-int TrainingData::getTargetOutputs(vector<double> &targetVals) {
+int TrainingData::getTargetOutputs(vector<double>& targetVals) {
     targetVals.clear();
 
     string line, label;
@@ -193,7 +193,7 @@ public:
     Net(const vector<unsigned int>& topology);
     void feedForward(const vector<double>& inputVals);
     void backPropagation(const vector<double>& targetVals);
-    void getResults(vector<double>resultVals) const;
+    void getResults(vector<double>& resultVals) const;
     double getRecentAverageError() const { return mRecentAverageError; }
 private:
     vector<Layer> mLayers; //[layerNumber][neuronNumber]
@@ -252,7 +252,6 @@ void Net::backPropagation(const vector<double>& targetVals) {
     mRecentAverageError = (mRecentAverageError * mRecentAverageSmoothingFactor + mError)
         / (mRecentAverageSmoothingFactor + 1.0);
 
-
     //calculate output layer gradients
     for(int i = 0; i < outputLayer.size() - 1; i++) {
         outputLayer[i].calculateOutputGradients(targetVals[i]);
@@ -269,7 +268,7 @@ void Net::backPropagation(const vector<double>& targetVals) {
     }
 
     //update connection weights from outputs backwards to first hidden layer
-    for(int i = mLayers.size() - 1; i > 0; i++) {
+    for(int i = mLayers.size() - 1; i > 0; i--) {
         Layer &curLayer = mLayers[i];
         Layer &prevLayer = mLayers[i - 1];
 
@@ -278,7 +277,7 @@ void Net::backPropagation(const vector<double>& targetVals) {
         }
     }
 }
-void Net::getResults(vector<double>resultVals) const {
+void Net::getResults(vector<double>& resultVals) const {
     resultVals.clear();
 
     for(int i = 0; i < mLayers.back().size() - 1; i++) {
@@ -318,6 +317,8 @@ int main() {
         printVector(": Inputs:", inputVals);
         net.feedForward(inputVals);
 
+        cout << "feedForward done" << endl;
+
         //Collect net's output results
         net.getResults(resultVals);
         printVector("Outputs:", resultVals);
@@ -327,7 +328,9 @@ int main() {
         printVector("Targets:", targetVals);
         assert(targetVals.size() == topology.back());
 
+        cout << "backProp:"; cout.flush();
         net.backPropagation(targetVals);
+        cout << "...done" << endl;
 
         //how well is training working (averaged over recent samples)?
         cout << "Net recent average error: " << net.getRecentAverageError() << endl;
