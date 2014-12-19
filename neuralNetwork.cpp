@@ -29,7 +29,7 @@ class TrainingData {
 public:
     TrainingData(const string filename);
     bool isEoF(void) { return mDataFile.eof(); }
-    void getTopology(vector<int>& topology);
+    void getTopology(vector<unsigned int>& topology);
     int getNextInputs(vector<double>& inputVals);
     int getTargetOutputs(vector<double>& targetOutputVals);
 private:
@@ -40,7 +40,7 @@ TrainingData::TrainingData(const string filename) {
     mDataFile.open(filename.c_str());
 }
 
-void TrainingData::getTopology(vector<int> &topology) {
+void TrainingData::getTopology(vector<unsigned int> &topology) {
     string line, label;
 
     getline(mDataFile, line);
@@ -308,8 +308,8 @@ int main() {
     int trainingIteration = 0;
 
     while(!trainingData.isEoF()) {
-        trainingData++;
-        cout << endl << "Pass " << trainingData;
+        trainingIteration++;
+        cout << endl << "Pass " << trainingIteration;
 
         //Get input data and feed it forward
         if(trainingData.getNextInputs(inputVals) != topology[0])
