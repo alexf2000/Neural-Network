@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <cassert>
 #include <cmath>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -21,6 +23,75 @@ struct Connection {
         weight = rand() / double(RAND_MAX);
     }
 };
+
+// --------------------- class TrainingData ----------------------------
+class TrainingData {
+public:
+    TrainingData(const string filename);
+    bool isEoF(void) { return mDataFile.eof(); }
+    void getTopology(vector<int>& topology);
+    int getNextInputs(vector<double>& inputVals);
+    int getTargetOutputs(vector<double>& targetOutputVals);
+private:
+    ifstream mDataFile;
+};
+
+void TrainingData::TrainingData(const string filename) {
+    mDataFile.open(filename.c_str());
+}
+
+void TrainingData::getTopology(vector<unsigned> &topology) {
+    string line, label;
+
+    getline(mDataFile, line);
+    stringstream stream(line);
+    stream >> label;
+    
+    if(this->isEoF || label.compare("topology:") != 0)
+        abort();
+
+    int tmp;
+    while(!stream.eof()) {
+        ss >> tmp;
+        topology.push_back(tmp);
+    }
+}
+
+int TrainingData::getNextInputs(vector<double> &inputVals) {
+    inputVals.clear();
+
+    string line, label;
+    getline(mDataFile, line);
+    stringstream stream(line);
+    ss >> label;
+
+    if(label.compare("in:") == 0) {
+        double tmp;
+        while(ss >> tmp)
+            inputVals.push_back(tmp);
+    }
+
+    return inputVals.size();
+}
+
+int TrainingData::getTargetOutputs(vector<double> &targetVals) {
+    inputVals.clear();
+
+    string line, label;
+    getline(mDataFile, line);
+    stringstream stream(line);
+    ss >> label;
+
+    if(label.compare("out:") == 0) {
+        double tmp;
+        while(ss >> tmp)
+            targetVals.push_back(tmp);
+    }
+
+    return targetVals.size();
+}
+
+
 
 // ------------------------- class Neuron ------------------------------
 class Neuron {
@@ -140,7 +211,10 @@ Net::Net(const vector<unsigned int>& topology) {
             mLayers.back().push_back(Neuron(numOutputs));
             cout << "Made a neuron!" << endl;
         }
-    };
+
+        //Force bias neuron's output to be 1.0
+        mLayers.back().back().setOutputVal(1.0);
+    }
 }
 
 void Net::feedForward(const vector<double>& inputVals) {
@@ -212,6 +286,9 @@ void Net::getResults(vector<double>resultVals) const {
 
 
 int main() {
+
+    TrainingData trainingData("trainingData.txt")
+
 
     //create neural net
     vector<unsigned int> topology; //ex: (3, 2, 1) - 3 input, 2 hidden, 1 output
