@@ -9,7 +9,7 @@
 using namespace std;
 
 
-class Neuron {}; //forward reference - Layer and Neuron need each other
+class Neuron; //forward reference - Layer and Neuron need each other
 
 typedef vector<Neuron> Layer;
 
@@ -36,23 +36,23 @@ private:
     ifstream mDataFile;
 };
 
-void TrainingData::TrainingData(const string filename) {
+TrainingData::TrainingData(const string filename) {
     mDataFile.open(filename.c_str());
 }
 
-void TrainingData::getTopology(vector<unsigned> &topology) {
+void TrainingData::getTopology(vector<int> &topology) {
     string line, label;
 
     getline(mDataFile, line);
     stringstream stream(line);
     stream >> label;
     
-    if(this->isEoF || label.compare("topology:") != 0)
+    if(this->isEoF() || label.compare("topology:") != 0)
         abort();
 
     int tmp;
     while(!stream.eof()) {
-        ss >> tmp;
+        stream >> tmp;
         topology.push_back(tmp);
     }
 }
@@ -63,11 +63,11 @@ int TrainingData::getNextInputs(vector<double> &inputVals) {
     string line, label;
     getline(mDataFile, line);
     stringstream stream(line);
-    ss >> label;
+    stream >> label;
 
     if(label.compare("in:") == 0) {
         double tmp;
-        while(ss >> tmp)
+        while(stream >> tmp)
             inputVals.push_back(tmp);
     }
 
@@ -75,30 +75,28 @@ int TrainingData::getNextInputs(vector<double> &inputVals) {
 }
 
 int TrainingData::getTargetOutputs(vector<double> &targetVals) {
-    inputVals.clear();
+    targetVals.clear();
 
     string line, label;
     getline(mDataFile, line);
     stringstream stream(line);
-    ss >> label;
+    stream >> label;
 
     if(label.compare("out:") == 0) {
         double tmp;
-        while(ss >> tmp)
+        while(stream >> tmp)
             targetVals.push_back(tmp);
     }
 
     return targetVals.size();
 }
 
-
-
 // ------------------------- class Neuron ------------------------------
 class Neuron {
 public:
     Neuron(int numOutputs, int index);
-    void setOutputVal(double val) { mOutputVal = val };
-    double getOutputVal() const { return mOutputVal };
+    void setOutputVal(double val) { mOutputVal = val; }
+    double getOutputVal() const { return mOutputVal; }
     void feedForward(const Layer& prevLayer);
     void calculateOutputGradients(double targetVal);
     void calculateHiddenGradients(const Layer& nextLayer);
@@ -110,9 +108,12 @@ private:
     double mOutputVal, mGradient;
     vector<Connection> mOutputWeights;
     int mIndex;
-    static double eta = 0.15; //overall net learning rate
-    static double alpha = 0.5; //momentum, multiplier of last deltaWeight
+    static double eta; //overall net learning rate
+    static double alpha; //momentum, multiplier of last deltaWeight
 };
+
+double Neuron::eta = 0.15;
+double Neuron::alpha = 0.5;
 
 Neuron::Neuron(int numOutputs, int index) {
     for(int i = 0; i < numOutputs; i++) {
@@ -161,7 +162,7 @@ double Neuron::sumDOW(const Layer& nextLayer) {
     double sum = 0;
 
     for(int i = 0; i < nextLayer.size() - 1; i++) {
-        sum += mOutputWeight[i].weight * nextLayer[i].mGradient;
+        sum += mOutputWeights[i].weight * nextLayer[i].mGradient;
     }
     return sum;
 }
@@ -193,9 +194,10 @@ public:
     void feedForward(const vector<double>& inputVals);
     void backPropagation(const vector<double>& targetVals);
     void getResults(vector<double>resultVals) const;
+    double getRecentAverageError() const { return mRecentAverageError; }
 private:
     vector<Layer> mLayers; //[layerNumber][neuronNumber]
-    double mError, mRecentAverageError, mRecentAverageSmoothingError;
+    double mError, mRecentAverageError, mRecentAverageSmoothingFactor;
 };
 
 Net::Net(const vector<unsigned int>& topology) {
@@ -208,7 +210,7 @@ Net::Net(const vector<unsigned int>& topology) {
 
         //add topology[i] number of neurons (+1 bias neuron) to new layer
         for(int j = 0; j < topology[i] + 1; j++) {
-            mLayers.back().push_back(Neuron(numOutputs));
+            mLayers.back().push_back(Neuron(numOutputs, j));
             cout << "Made a neuron!" << endl;
         }
 
@@ -240,7 +242,7 @@ void Net::backPropagation(const vector<double>& targetVals) {
     mError  = 0.0;
 
     for(int i = 0; i < outputLayer.size() - 1; i++) {
-        double delta = targetVals[n] - outputLayer[n].getOutputVal();
+        double delta = targetVals[i] - outputLayer[i].getOutputVal();
         mError += delta * delta;
     }
     mError /= outputLayer.size() - 1;
@@ -253,7 +255,7 @@ void Net::backPropagation(const vector<double>& targetVals) {
 
     //calculate output layer gradients
     for(int i = 0; i < outputLayer.size() - 1; i++) {
-        outputLayer[i].calculateOutputGradients(targetVal[i]);
+        outputLayer[i].calculateOutputGradients(targetVals[i]);
     }
     
     //calculate gradients on hidden layers
@@ -284,28 +286,53 @@ void Net::getResults(vector<double>resultVals) const {
     }
 }
 
+void printVector(string label, vector<double>& inVector) {
+    cout << label << " ";
+    for(int i = 0; i < inVector.size(); i++)
+        cout << inVector[i] << " ";
+    cout << endl;
+}
+
 
 int main() {
 
-    TrainingData trainingData("trainingData.txt")
-
+    TrainingData trainingData("trainingData.txt");
 
     //create neural net
     vector<unsigned int> topology; //ex: (3, 2, 1) - 3 input, 2 hidden, 1 output
-    topology.push_back(3);
-    topology.push_back(2);
-    topology.push_back(1);
+    trainingData.getTopology(topology);
     
     Net net(topology);
     
-    
     vector<double> inputVals, targetVals, resultVals;
+    int trainingIteration = 0;
 
-    //train neural net
-    net.feedForward(inputVals);
-    net.backPropagation(targetVals);
-    
-    //test neural net
-    net.getResults(resultVals);
+    while(!trainingData.isEoF()) {
+        trainingData++;
+        cout << endl << "Pass " << trainingData;
+
+        //Get input data and feed it forward
+        if(trainingData.getNextInputs(inputVals) != topology[0])
+            break;
+
+        printVector(": Inputs:", inputVals);
+        net.feedForward(inputVals);
+
+        //Collect net's output results
+        net.getResults(resultVals);
+        printVector("Outputs:", resultVals);
+
+        //Train the net to improve output
+        trainingData.getTargetOutputs(targetVals);
+        printVector("Targets:", targetVals);
+        assert(targetVals.size() == topology.back());
+
+        net.backPropagation(targetVals);
+
+        //how well is training working (averaged over recent samples)?
+        cout << "Net recent average error: " << net.getRecentAverageError() << endl;
+    }
+
+    cout << endl << "Done!!" << endl;
 
 }
