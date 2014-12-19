@@ -308,11 +308,12 @@ int main() {
 
     while(!trainingData.isEoF()) {
         trainingIteration++;
-        cout << endl << "Pass " << trainingIteration;
 
         //Get input data and feed it forward
         if(trainingData.getNextInputs(inputVals) != topology[0])
             break;
+
+        cout << endl << "Pass " << trainingIteration;
 
         printVector(": Inputs:", inputVals);
         net.feedForward(inputVals);
